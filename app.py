@@ -40,7 +40,7 @@ def make_audio_b64(text: str, lang: str = "en") -> str:
     return ""
 
 def jamie_audio(text: str) -> str:
-    return make_audio_b64(text, lang="en-gb")
+    return make_audio_b64(text, lang="en-ca")
 
 def transcribe(audio_bytes: bytes) -> str:
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
