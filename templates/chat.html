@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>English Conversation Coach</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+           background: #f5f6fa; color: #212529; min-height: 100vh; }
+    nav  { background: #fff; border-bottom: 1px solid #e9ecef; padding: 14px 24px;
+           display: flex; align-items: center; justify-content: space-between; }
+    nav .brand { font-weight: 600; font-size: 16px; }
+    nav .topic  { font-size: 13px; color: #6c757d; }
+    .container  { max-width: 720px; margin: 0 auto; padding: 24px 16px; }
+    .chat-box   { background: #fff; border-radius: 12px; border: 1px solid #e9ecef;
+                  padding: 20px; min-height: 400px; margin-bottom: 16px;
+                  display: flex; flex-direction: column; gap: 8px; }
+    .bubble     { padding: 12px 16px; border-radius: 12px; font-size: 14px;
+                  line-height: 1.6; max-width: 80%; }
+    .bubble-jamie   { background: #f1f3f5; color: #212529; align-self: flex-start; }
+    .bubble-student { background: #0d6efd; color: #fff; align-self: flex-end; }
+    .input-row  { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
+    .mic-btn    { width: 52px; height: 52px; border-radius: 50%; border: none;
+                  background: #0d6efd; color: #fff; font-size: 20px; cursor: pointer;
+                  flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .mic-btn.recording { background: #dc3545; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+    .text-input { flex: 1; padding: 12px 16px; border: 1px solid #ced4da;
+                  border-radius: 8px; font-size: 14px; outline: none; }
+    .text-input:focus { border-color: #0d6efd; }
+    .send-btn   { padding: 12px 20px; background: #0d6efd; color: #fff; border: none;
+                  border-radius: 8px; font-size: 14px; cursor: pointer; }
+    .end-btn    { width: 100%; padding: 12px; background: #198754; color: #fff;
+                  border: none; border-radius: 8px; font-size: 14px; font-weight: 500;
+                  cursor: pointer; margin-top: 12px; }
+    .end-btn:hover { background: #157347; }
+    .hint       { font-size: 12px; color: #6c757d; text-align: center; margin-top: 8px; }
+
+    /* Summary modal */
+    .modal-bg   { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5);
+                  z-index: 100; align-items: center; justify-content: center; }
+    .modal-bg.open { display: flex; }
+    .modal      { background: #fff; border-radius: 12px; padding: 28px; max-width: 640px;
+                  width: 90%; max-height: 80vh; overflow-y: auto; }
+    .modal h2   { font-size: 18px; margin-bottom: 16px; }
+    .modal-body { font-size: 14px; line-height: 1.8; color: #212529; }
+    .modal-body strong { color: #0d6efd; }
+    .modal-footer { margin-top: 20px; display: flex; gap: 10px; }
+    .btn-new    { padding: 10px 20px; background: #0d6efd; color: #fff; border: none;
+                  border-radius: 8px; font-size: 14px; cursor: pointer; }
+    .btn-close  { padding: 10px 20px; background: #e9ecef; color: #495057; border: none;
+                  border-radius: 8px; font-size: 14px; cursor: pointer; }
+    .spinner    { display: inline-block; width: 14px; height: 14px; border: 2px solid #ccc;
+                  border-top-color: #0d6efd; border-radius: 50%; animation: spin .6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<nav>
+  <span class="brand">🗣️ English Conversation Coach</span>
+  <span class="topic">Topic: {{ topic }}</span>
+</nav>
+
+<div class="container">
+  <div class="chat-box" id="chat-box">
+    <div class="bubble bubble-jamie" id="opening-bubble">{{ opening }}</div>
+  </div>
+
+  <div class="input-row">
+    <button class="mic-btn" id="mic-btn">🎤</button>
+    <input class="text-input" type="text" id="text-input" placeholder="Type your reply here...">
+    <button class="send-btn" id="send-btn">Send</button>
+  </div>
+  <div class="hint">Tap 🎤 to start recording · tap again to stop</div>
+
+  <button class="end-btn" id="end-btn">End conversation & see summary</button>
+</div>
+
+<!-- Summary modal -->
+<div class="modal-bg" id="modal-bg">
+  <div class="modal">
+    <h2>📝 Conversation Summary</h2>
+    <div class="modal-body" id="modal-body">
+      <span class="spinner"></span> Generating your summary...
+    </div>
+    <div class="modal-footer">
+      <button class="btn-new" onclick="newConversation()">New conversation</button>
+      <button class="btn-close" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<audio id="audio-player" style="display:none"></audio>
+
+<script>
+  const chatBox   = document.getElementById('chat-box');
+  const micBtn    = document.getElementById('mic-btn');
+  const textInput = document.getElementById('text-input');
+  const sendBtn   = document.getElementById('send-btn');
+  const endBtn    = document.getElementById('end-btn');
+  const player    = document.getElementById('audio-player');
+
+  let isRecording   = false;
+  let mediaRecorder = null;
+  let audioChunks   = [];
+  let busy          = false;
+
+  // Play opening audio
+  playAudio({{ opening_audio | tojson }});
+
+  function playAudio(b64, onEnded) {
+    if (!b64) {
+      console.warn('No audio data received');
+      if (onEnded) onEnded();
+      return;
+    }
+    player.src = 'data:audio/mp3;base64,' + b64;
+    player.onended = onEnded || null;
+    player.play().then(() => {
+      console.log('Audio playing');
+    }).catch((err) => {
+      console.error('Audio play failed:', err);
+      if (onEnded) onEnded();
+    });
+  }
+
+  function addBubble(text, type) {
+    const div = document.createElement('div');
+    div.className = 'bubble bubble-' + type;
+    div.textContent = text;
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  function setInputEnabled(enabled) {
+    micBtn.disabled  = !enabled;
+    sendBtn.disabled = !enabled;
+    endBtn.disabled  = !enabled;
+    textInput.disabled = !enabled;
+  }
+
+  async function sendAnswer(text) {
+    if (!text.trim() || busy) return;
+    busy = true;
+    setInputEnabled(false);
+    textInput.value = '';
+
+    addBubble(text, 'student');
+
+    // Show typing indicator
+    const typing = document.createElement('div');
+    typing.className = 'bubble bubble-jamie';
+    typing.innerHTML = '<span class="spinner"></span>';
+    chatBox.appendChild(typing);
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    const res  = await fetch('/respond', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    const data = await res.json();
+    typing.remove();
+
+    addBubble(data.reply, 'jamie');
+    playAudio(data.reply_audio, () => {
+      busy = false;
+      setInputEnabled(true);
+      textInput.focus();
+    });
+  }
+
+  // End conversation
+  endBtn.addEventListener('click', async () => {
+    document.getElementById('modal-bg').classList.add('open');
+    const res  = await fetch('/summary', { method: 'POST' });
+    const data = await res.json();
+    const body = document.getElementById('modal-body');
+    // Simple markdown → HTML conversion
+    body.innerHTML = data.summary
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n/g, '<br>');
+  });
+
+  function closeModal() {
+    document.getElementById('modal-bg').classList.remove('open');
+  }
+
+  async function newConversation() {
+    await fetch('/new');
+    window.location.href = '/';
+  }
+
+  // Mic recording
+  micBtn.addEventListener('click', async () => {
+    if (!isRecording) {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      audioChunks   = [];
+      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(audioChunks, { type: 'audio/wav' });
+        const res  = await fetch('/transcribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'audio/wav' },
+          body: blob,
+        });
+        const data = await res.json();
+        if (data.text) sendAnswer(data.text);
+      };
+      mediaRecorder.start();
+      isRecording = true;
+      micBtn.classList.add('recording');
+      micBtn.textContent = '⏹';
+    } else {
+      mediaRecorder.stop();
+      mediaRecorder.stream.getTracks().forEach(t => t.stop());
+      isRecording = false;
+      micBtn.classList.remove('recording');
+      micBtn.textContent = '🎤';
+    }
+  });
+
+  sendBtn.addEventListener('click', () => sendAnswer(textInput.value));
+  textInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') sendAnswer(textInput.value);
+  });
+</script>
+</body>
+</html>
