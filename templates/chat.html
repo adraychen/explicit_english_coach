@@ -60,17 +60,16 @@
 
 <nav>
   <span class="brand">🗣️ English Conversation Coach</span>
-  <span class="topic">Topic: {{ topic }}</span>
 </nav>
 
 <div class="container">
   <div class="chat-box" id="chat-box">
-    <div class="bubble bubble-jamie" id="opening-bubble">{{ opening }}</div>
+    <div class="bubble bubble-jamie">Say anything to start chatting!</div>
   </div>
 
   <div class="input-row">
     <button class="mic-btn" id="mic-btn">🎤</button>
-    <input class="text-input" type="text" id="text-input" placeholder="Type your reply here...">
+    <input class="text-input" type="text" id="text-input" placeholder="Say something...">
     <button class="send-btn" id="send-btn">Send</button>
   </div>
   <div class="hint">Tap 🎤 to start recording · tap again to stop</div>
@@ -106,9 +105,6 @@
   let mediaRecorder = null;
   let audioChunks   = [];
   let busy          = false;
-
-  // Play opening audio
-  playAudio({{ opening_audio | tojson }});
 
   function playAudio(b64, onEnded) {
     if (!b64) {

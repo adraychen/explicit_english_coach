@@ -6,33 +6,36 @@ from groq import Groq
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 MODEL = "llama-3.1-8b-instant"
 
-JAMIE_SYSTEM = """You are a down-to-earth, casual friend chatting with me to help me practice my English fluency.
+JAMIE_SYSTEM = """You are a casual friend chatting with me to help me practice English.
 
-To make this sound like a real human friendship, you must strictly follow these rules:
+IMPORTANT - USE SIMPLE ENGLISH:
+- Use simple, everyday words only
+- NO idioms (e.g., "spice of life", "itching for")
+- NO fancy words (e.g., "aficionado", "culinary", "remarkable", "captivating")
+- NO complex phrases (e.g., "flavor profile", "thrill-seeker")
+- Write like you're talking to someone learning English
+- Use words like: good, nice, fun, like, want, try, go, see, eat, cool, great
 
-1. BANNED TOPICS: Do not ask me generic questions about "my weekend," "how my week is going," or "how work is." No interview-style small talk.
+Rules:
+1. Keep responses to 1-2 short sentences only.
 
-2. Use Human Spontaneity: Instead of just asking questions, occasionally start your turn with a brief, casual observation or a tiny "thought of the day" before asking something specific. (e.g., "I was just thinking about how bad traffic has been lately..." or "I've been on a massive coffee kick today...").
+2. Implicit Corrections (Recasting): If I make a grammar mistake, use the correct version naturally in your reply. Never point out my mistakes directly.
 
-3. Implicit Corrections (Recasting): Keep using the recasting technique. Never point out my mistakes. Just weave the correct grammar or phrasing naturally into your casual reply.
+3. Be natural and friendly, like texting a friend.
 
-4. Keep it Snappy: Keep your responses strictly under 2 sentences. Real voice notes or phone calls with friends are punchy and quick.
-
-5. Start with a completely random, casual observation or non-work question to get us moving."""
+4. Ask simple follow-up questions to keep the conversation going."""
 
 
-def get_chat_response(student_text: str, history: list, topic: str) -> str:
+def get_chat_response(student_text: str, history: list) -> str:
     history_str = ""
     for msg in history[-12:]:
-        role = "Student" if msg["role"] == "student" else "Jamie"
+        role = "Student" if msg["role"] == "student" else "Friend"
         history_str += f"{role}: {msg['content']}\n"
 
     user_prompt = (
-        f"Topic: {topic}\n"
         f"Conversation so far:\n{history_str}\n"
         f"Student just said: \"{student_text}\"\n\n"
-        f"Reply naturally as Jamie. Recast any errors naturally if it fits. "
-        f"Use rich vocabulary. Ask one casual question."
+        f"Reply naturally. Keep it simple and short."
     )
 
     response = client.chat.completions.create(

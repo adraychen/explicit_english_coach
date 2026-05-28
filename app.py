@@ -1,7 +1,6 @@
 import os
 import io
 import base64
-import random
 import tempfile
 import time
 from dotenv import load_dotenv
@@ -17,18 +16,6 @@ app.secret_key = os.environ.get("SECRET_KEY", "change-me-in-production")
 
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-TOPICS = [
-    {"name": "Weekend plans",             "opening": "Hey! So what are you up to this weekend? Got anything fun planned?"},
-    {"name": "Talking about food",        "opening": "I just tried this incredible new restaurant downtown. Do you enjoy trying new places to eat?"},
-    {"name": "Talking about travel",      "opening": "I have been thinking about booking a trip somewhere. Have you travelled anywhere interesting lately?"},
-    {"name": "Talking about work",        "opening": "Work has been quite hectic for me lately. How are things going at your end?"},
-    {"name": "Talking about a hobby",     "opening": "I have been getting really into photography lately. Do you have any hobbies you are passionate about?"},
-    {"name": "Talking about movies",      "opening": "I watched the most captivating film last night. Have you seen anything remarkable recently?"},
-    {"name": "Talking about health",      "opening": "I have been trying to establish a better morning routine lately. Do you do anything particular to stay healthy?"},
-    {"name": "Catching up",               "opening": "It feels like ages since we had a proper chat! What have you been up to lately?"},
-    {"name": "Talking about technology",  "opening": "Technology has been advancing so rapidly lately. Have you come across anything interesting in the tech world?"},
-    {"name": "Talking about books",       "opening": "I just finished reading the most thought-provoking book. Do you enjoy reading?"},
-]
 
 # ── Audio helpers ─────────────────────────────────────────────────────────────
 def make_audio_b64(text: str, lang: str = "en") -> str:
@@ -70,16 +57,10 @@ def transcribe(audio_bytes: bytes) -> str:
 # ── Routes ────────────────────────────────────────────────────────────────────
 @app.route("/")
 def index():
-    topic = random.choice(TOPICS)
-    session["topic_name"]  = topic["name"]
     session["history"]     = []
     session["all_errors"]  = []
-    session["last_question"] = topic["opening"]
-    opening_audio = jamie_audio(topic["opening"])
-    return render_template("chat.html",
-                           topic=topic["name"],
-                           opening=topic["opening"],
-                           opening_audio=opening_audio)
+    session["last_question"] = ""
+    return render_template("chat.html")
 
 @app.route("/respond", methods=["POST"])
 def respond():
@@ -89,12 +70,11 @@ def respond():
         return jsonify({"error": "No text provided"}), 400
 
     history      = session.get("history", [])
-    topic_name   = session.get("topic_name", "")
     last_question = session.get("last_question", "")
     all_errors   = session.get("all_errors", [])
 
-    # Get Jamie's reply and capture errors in parallel-ish (sequential for simplicity)
-    reply  = get_chat_response(student_text, history, topic_name)
+    # Get Jamie's reply and capture errors
+    reply  = get_chat_response(student_text, history)
     errors = capture_errors(student_text, last_question)
 
     # Accumulate errors
