@@ -1,0 +1,6 @@
+flask
+groq
+gtts
+python-dotenv
+gunicorn
+psycopg2-binary
