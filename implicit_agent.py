@@ -106,65 +106,59 @@ CONVERSATION STYLE:
 - Never sound like a teacher, never give language advice, never mention errors"""
 
 
-# ── Style 2: Morgan — clear accessible English ────────────────────────────────
+# ── Style 2: Morgan — clear accessible English (Leo/Tina podcast style) ───────
 MORGAN_SYSTEM = """
-You are Morgan, a warm and friendly English teacher having a natural, relaxed conversation with someone who is practising English. You lead the conversation gently, like a good friend who is helping them learn — never stiff, never like a classroom.
+You are Morgan, a warm, clever, and engaging English-conversation host — think of the
+hosts of a popular English-learning podcast like Leo and Tina. You chat about an
+everyday topic in clear, accessible English, modelling natural phrases so the student
+hears them, remembers them, and can use them in their own daily conversations.
 
-YOUR GOAL THIS SESSION:
-You are teaching the student a small set of target words and phrases through
-natural conversation. You teach a word by DEMONSTRATING it naturally — using it
-correctly in your own speech with a clear, everyday context — and then inviting
-the student to respond.
+You are NOT a classroom teacher and you do NOT lecture. You are a lively, friendly host
+who keeps an easy, enjoyable conversation going while naturally using useful words and
+phrases from the topic.
 
-For example, to teach "tired":
-  "I'm a bit tired today because I stayed up late. How are you feeling?"
-This shows the word, shows when to use it, and gives a natural reason.
+WHAT YOU DO:
+- Chat naturally about the topic, weaving in the topic's useful words and phrases so the
+  student hears them used correctly in real context.
+- Model clear, natural phrases — the kind a learner can copy and reuse the same day.
+- Keep the conversation flowing and engaging — be warm, a little playful, genuinely
+  interested. This is what makes the app enjoyable.
+- Lead gently so the conversation stays on the topic. Don't chase the student down
+  side-topics or into problem-solving.
+- Give the student natural openings to speak and practise.
 
-HOW TO TEACH:
-- You lead. Bring the target words into the conversation naturally, one at a time.
-- Teach only ONE new word or phrase per reply. Never introduce two or more in the same turn.
-- Weave the new word into a genuine response to what the student JUST said — it should
-  connect to their topic, not come from an unrelated story about yourself.
-- Do NOT add tangential stories about yourself just to squeeze in a vocabulary word.
-  If you share something about yourself, keep it short and relevant to their topic.
-- Demonstrate the word with a real example and a reason, the way a friend would.
-- Then let the student respond — don't rush ahead to the next word.
-- Keep your replies focused and not too long — two to four sentences is plenty.
-- Do NOT explain grammar or give detailed definitions during the chat — that
-  interrupts the flow. Detailed explanations happen later in the review summary.
-- Keep it warm and encouraging. This should feel like a friendly chat, not a lesson.
-
-BEFORE EVERY REPLY — READ THE HISTORY FIRST:
-Carefully read the full conversation history. Remember everything the student
-has told you — their situation, feelings, and details they have shared.
-Build your reply on what you already know about them.
-Never ask about something they have already answered.
-Never contradict facts they have already shared.
+ACKNOWLEDGE FIRST — VERY IMPORTANT:
+Always read what the student JUST said and acknowledge it before you continue.
+Never ask about something they already told you. For example, if the student says
+"the weather is nice so I feel energetic," do NOT ask "what makes you feel energetic?"
+— they already told you. Instead, build on it: "A sunny morning is the best — it really
+gives you a lift."
 
 RECASTING — ALWAYS DO THIS:
-When the student makes a mistake — grammar, wrong tense, wrong word, unnatural
-phrasing, awkward structure — naturally weave the correct version into your reply.
-Do this silently. Never point out the error, never say "you should say".
-
+When the student makes a mistake — grammar, tense, wrong word, unnatural phrasing —
+naturally restate the correct version in your reply. Do it silently. Never point out
+the error, never say "you should say."
 Examples:
-- They say: "Yesterday I go to the store"
-  You say: "Oh, you went to the store yesterday? What did you pick up?"
-- They say: "I am interesting in cooking"
-  You say: "It is great that you are interested in cooking! I enjoy it too."
-- They say: "I feel very sweat"
-  You say: "Yes, when it is hot you can feel very sweaty. That makes sense."
+- They say: "Yesterday I go to the store" → You: "Oh, you went to the store yesterday? Nice."
+- They say: "I am interesting in cooking" → You: "It's great you're interested in cooking!"
+- They say: "I feel very sweat" → You: "Yeah, when it's hot you feel really sweaty."
 
-When NOT to recast:
-- If the sentence is already natural and correct, just respond normally.
-- If you cannot tell what they meant, gently ask them to say more.
+USING THE TOPIC VOCABULARY:
+- Weave the topic's words and phrases into the conversation naturally — don't force them,
+  and don't announce them. Just use them the way a host naturally would.
+- It's fine to use more than one in a reply if it flows naturally, but never cram them in.
+- You may use the topic's sample sentence patterns when they fit naturally, but do not
+  drill them or repeat them mechanically. Natural speech always comes first.
 
-CONVERSATION STYLE:
-- Speak in clear, complete, natural sentences — warm and friendly, easy to follow
-- Use clear everyday English — avoid heavy slang or confusing idioms
-- Vary your length naturally — sometimes one sentence, sometimes a few
-- Only ask a question when it fits — sometimes just react or share your own thought
-- Be encouraging and celebrate what the student shares
-- Never sound like a classroom teacher — you are a warm, friendly guide"""
+KEEP IT ON TOPIC:
+- Keep your questions and comments about the topic focus you are given.
+- Ask simple, natural questions that invite the student to talk about the topic — never
+  interview-style, logistics, or problem-solving questions.
+
+DO NOT explain grammar or give definitions during the chat — it breaks the flow.
+The detailed review comes later, after the conversation.
+
+Keep your replies clear, warm, and not too long — usually two to four sentences."""
 
 
 # ── Chat response ─────────────────────────────────────────────────────────────
@@ -187,35 +181,59 @@ def get_chat_response(student_text: str, history: list, style: str = "casual",
         )
         model = MODEL_FAST
     else:
-        # Morgan — topic-led teaching on the strong model
+        # Morgan — topic-led conversation (Leo/Tina style) on the strong model
         system = MORGAN_SYSTEM
-        taught_words = taught_words or []
-        pool         = topic.get("vocabulary_pool", "") if topic else ""
-        coach_views  = topic.get("coach_views", "")     if topic else ""
-        topic_name   = topic.get("name", "")            if topic else ""
+        pool          = topic.get("vocabulary_pool", "") if topic else ""
+        coach_views   = topic.get("coach_views", "")     if topic else ""
+        topic_name    = topic.get("name", "")            if topic else ""
+        level         = topic.get("level", "")           if topic else ""
+        focus_keyword = topic.get("focus_keyword", "")   if topic else ""
+        focus = focus_keyword or topic_name or "the topic"
 
-        remaining = [w for w in pool.split("\n") if w.strip() and w.strip() not in taught_words]
-        taught_str    = ", ".join(taught_words) if taught_words else "none yet"
-        remaining_str = "\n".join(remaining) if remaining else "all taught"
+        # Words already covered in PREVIOUS sessions — Morgan should favour new ones
+        already = taught_words or []
+        pool_items = [w.strip() for w in pool.split("\n") if w.strip()]
+        fresh = [w for w in pool_items if w not in already]
+        pool_str = "\n".join(fresh) if fresh else "\n".join(pool_items)
+
+        # Level-based complexity guidance
+        level_low = (level or "").lower()
+        if "a1" in level_low or "beginner" in level_low:
+            level_guidance = (
+                "The student is a BEGINNER. Use short, simple sentences and very common "
+                "everyday words. Speak slowly and clearly. Avoid idioms and complex grammar."
+            )
+        elif "a2" in level_low or "b1" in level_low or "intermediate" in level_low:
+            level_guidance = (
+                "The student is at an INTERMEDIATE level. Use natural everyday English with "
+                "common expressions. Keep it clear and accessible, but you can use a little "
+                "more variety in your phrasing."
+            )
+        else:
+            level_guidance = (
+                "Use clear, natural, accessible English suitable for a learner. "
+                "Keep sentences easy to follow."
+            )
 
         teaching_context = (
-            f"TODAY'S TOPIC: {topic_name}\n\n"
-            f"TARGET WORDS AND PHRASES YOU CAN TEACH (the pool):\n{remaining_str}\n\n"
-            f"WORDS YOU HAVE ALREADY TAUGHT THIS SESSION: {taught_str}\n\n"
-            f"SAMPLE WAYS YOU MIGHT SHARE YOUR OWN FEELINGS (for inspiration):\n{coach_views}\n\n"
-            f"Teach only ONE new word or phrase in this reply. Weave it naturally into "
-            f"your response to what the student just said — connect it to their topic, "
-            f"do not invent an unrelated story just to use a word. Demonstrate it with a "
-            f"real example and a reason, then let the student respond. Keep your reply "
-            f"focused and not too long (two to four sentences)."
+            f"TODAY'S TOPIC: {topic_name}\n"
+            f"CONVERSATION FOCUS: keep the chat about {focus}.\n"
+            f"LEVEL: {level}\n{level_guidance}\n\n"
+            f"USEFUL WORDS AND PHRASES TO WEAVE IN NATURALLY (use the way a host would, "
+            f"don't force them, don't announce them):\n{pool_str}\n\n"
+            f"SAMPLE THINGS YOU MIGHT SAY (for inspiration only):\n{coach_views}\n\n"
+            f"Acknowledge what the student just said first, then continue the conversation "
+            f"naturally — staying on the topic of {focus}. Keep your reply clear, warm, and "
+            f"not too long. Recast any mistakes silently. Ask a simple, natural question "
+            f"about {focus} only when it fits — never an interview or problem-solving question, "
+            f"and never ask about something the student already told you."
         )
 
         user_prompt = (
             f"{teaching_context}\n\n"
             f"Conversation so far:\n{history_str}\n"
             f"Student just said: \"{student_text}\"\n\n"
-            f"Reply naturally as Morgan — warm and friendly. Recast any mistakes. "
-            f"Continue teaching the target words through natural conversation."
+            f"Reply as Morgan — a warm, engaging host. Stay on {focus}."
         )
         model = MODEL_STRONG
 
@@ -231,64 +249,22 @@ def get_chat_response(student_text: str, history: list, style: str = "casual",
     return response.choices[0].message.content.strip()
 
 
-# ── Teaching tracker (Morgan only) ────────────────────────────────────────────
-def track_teaching(morgan_reply: str, vocabulary_pool: str, already_taught: list) -> list:
+# ── Word tracking (Morgan only) — reliable text matching ──────────────────────
+def words_used_in_text(text: str, vocabulary_pool: str) -> list:
     """
-    Checks which target words/phrases from the pool Morgan demonstrated in this
-    reply. Returns the list of newly taught words (not already in already_taught).
-    A word counts as taught only when Morgan uses it correctly in context.
+    Return which single vocabulary words from the pool literally appear in the text.
+    Simple, reliable text matching — no LLM judgement. Sentence patterns (with [..])
+    are skipped since they don't match literally.
     """
-    pool_items = [w.strip() for w in vocabulary_pool.split("\n") if w.strip()]
-    remaining  = [w for w in pool_items if w not in already_taught]
-    if not remaining:
-        return []
-
-    system_prompt = """You analyse a teacher's sentence to detect which target words or
-phrases from a list the teacher actively DEMONSTRATED — meaning the teacher used the
-word correctly in a natural example sentence (not just mentioned it in passing).
-
-Return ONLY a JSON array of the exact items from the list that were demonstrated.
-If none were clearly demonstrated, return []."""
-
-    user_prompt = (
-        f"Target words/phrases still to teach:\n{chr(10).join(remaining)}\n\n"
-        f"Teacher's sentence:\n\"{morgan_reply}\"\n\n"
-        f"Which of the target items did the teacher demonstrate in a natural example? "
-        f"Return a JSON array of the exact matching items, or []."
-    )
-
-    response = client.chat.completions.create(
-        model=MODEL_FAST,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user",   "content": user_prompt}
-        ],
-        max_tokens=200,
-        temperature=0.2,
-    )
-    raw = response.choices[0].message.content.strip()
-
-    found = []
-    match = re.search(r'\[.*\]', raw, re.DOTALL)
-    if match:
-        try:
-            parsed = json.loads(match.group())
-            found = [w for w in parsed if w in remaining]
-        except Exception:
-            found = []
-
-    # Reliable fallback: if Morgan literally used a single-word feeling term in her
-    # reply (e.g. "I feel calm"), count it even if the LLM tracker missed it.
-    reply_lower = morgan_reply.lower()
-    for w in remaining:
+    pool_items = [w.strip() for w in (vocabulary_pool or "").split("\n") if w.strip()]
+    text_lower = (text or "").lower()
+    used = []
+    for w in pool_items:
         if "[" in w:
-            continue  # skip sentence patterns for direct matching
-        # match whole word, e.g. "calm" but not inside "calmly"
-        if re.search(r'\b' + re.escape(w.lower()) + r'\b', reply_lower):
-            if w not in found:
-                found.append(w)
-
-    return found
+            continue  # skip sentence patterns
+        if re.search(r'\b' + re.escape(w.lower()) + r'\b', text_lower):
+            used.append(w)
+    return used
 
 
 # ── Error capture ─────────────────────────────────────────────────────────────

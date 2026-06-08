@@ -10,7 +10,7 @@ from gtts import gTTS
 import psycopg2
 import psycopg2.extras
 from implicit_agent import (
-    get_chat_response, capture_errors, generate_summary, track_teaching
+    get_chat_response, capture_errors, generate_summary, words_used_in_text
 )
 
 load_dotenv()
@@ -20,8 +20,7 @@ app.secret_key = os.environ.get("SECRET_KEY", "change-me-in-production")
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 USER_NAME       = "Ray"   # Option C: single user for now; becomes user_id with login
-WORDS_PER_SESSION = 5     # Morgan ends the session after teaching this many
-MAX_MORGAN_TURNS  = 8     # Hard safety cap: never run a session longer than this
+MAX_EXCHANGES   = 6       # Morgan session ends after this many exchanges, then review
 
 # ── Database ──────────────────────────────────────────────────────────────────
 def get_db():
@@ -192,8 +191,7 @@ def index():
     session["last_question"] = ""
     session["style"]         = style
     session["taught_words"]  = []
-    session["morgan_turns"]  = 0
-    session["taught_this_session"] = []
+    session["exchanges"]     = 0
     coach_name = "Dora" if style == "casual" else "Morgan"
 
     opening = "Say anything to start chatting!"
@@ -212,8 +210,7 @@ def set_style():
     session["last_question"] = ""
     session["style"]         = style
     session["taught_words"]  = []
-    session["morgan_turns"]  = 0
-    session["taught_this_session"] = []
+    session["exchanges"]     = 0
 
     opening = "Say anything to start chatting!"
     if style == "clear":
@@ -248,37 +245,22 @@ def respond():
     all_errors.extend(errors)
 
     if style == "clear" and topic:
-        # Morgan — topic-led teaching
+        # Morgan — topic-led conversation (Leo/Tina style)
+        # taught_words holds words learned in PREVIOUS sessions (to favour new ones)
         reply = get_chat_response(student_text, history, style,
                                   topic=topic, taught_words=taught_words)
-        # Track which target words Morgan just taught
-        newly_taught = track_teaching(reply, topic.get("vocabulary_pool", ""), taught_words)
-        taught_words = taught_words + newly_taught
-        session["taught_words"] = taught_words
 
-        # Track how many words were taught THIS session (excludes the seeded
-        # words already learned in previous sessions).
-        taught_this_session = session.get("taught_this_session", [])
-        taught_this_session = taught_this_session + newly_taught
-        session["taught_this_session"] = taught_this_session
+        # Count exchanges (one student message + one Morgan reply = one exchange)
+        exchanges = session.get("exchanges", 0) + 1
+        session["exchanges"] = exchanges
 
-        # Count Morgan turns as a safety net
-        morgan_turns = session.get("morgan_turns", 0) + 1
-        session["morgan_turns"] = morgan_turns
-
-        # End the session once enough NEW words are taught — but not in the middle
-        # of a question. If Morgan's reply ends with a question, let the student
-        # answer first; the session will complete on the next turn.
-        reached_target     = len(taught_this_session) >= WORDS_PER_SESSION
+        # End after MAX_EXCHANGES — but not in the middle of a question.
+        reached_end        = exchanges >= MAX_EXCHANGES
         ends_with_question = reply.rstrip().endswith("?")
-        session_complete   = reached_target and not ends_with_question
-
-        # Hard safety cap — never let a session run longer than this many turns,
-        # even if word tracking fails for some reason.
-        if morgan_turns >= MAX_MORGAN_TURNS:
+        session_complete   = reached_end and not ends_with_question
+        # Hard cap: never run more than MAX_EXCHANGES + 1
+        if exchanges >= MAX_EXCHANGES + 1:
             session_complete = True
-
-        session["reached_target"] = reached_target
     else:
         # Dora — free chat
         reply = get_chat_response(student_text, history, style)
@@ -314,16 +296,25 @@ def summary():
     try:
         all_errors   = session.get("all_errors", [])
         style        = session.get("style", "casual")
-        # Only the words taught THIS session (not previously learned ones)
-        taught_words = session.get("taught_this_session", [])
+        history      = session.get("history", [])
         topic        = session.get("topic") or {}
         topic_name   = topic.get("name", "")
         topic_id     = session.get("topic_id")
+        pool         = topic.get("vocabulary_pool", "")
+
+        # Reliably determine which vocabulary words Morgan actually used this session
+        # by text-matching everything Morgan said (no LLM guessing).
+        taught_words = []
+        if style == "clear" and pool:
+            morgan_text = " ".join(
+                m["content"] for m in history if m.get("role") == "assistant"
+            )
+            taught_words = words_used_in_text(morgan_text, pool)
 
         result = generate_summary(all_errors, style,
                                   taught_words=taught_words, topic_name=topic_name)
 
-        # Log Morgan's taught words to the database
+        # Log the words Morgan used to the database (cross-session memory)
         if style == "clear" and taught_words and topic_id:
             try:
                 log_learning(topic_id, taught_words, all_errors)
@@ -331,7 +322,6 @@ def summary():
                 print(f"[Learning log] Error: {e}")
 
         # Morgan speaks the review aloud (clear style only).
-        # gTTS has a length limit, so speak a short spoken intro + the taught words.
         summary_audio = ""
         if style == "clear":
             spoken = build_spoken_summary(taught_words, all_errors)
